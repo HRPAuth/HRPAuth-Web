@@ -5,6 +5,7 @@ import Skinlib from './pages/Skinlib';
 import Dashboard from './pages/Dashboard';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import VerifyEmail from './pages/VerifyEmail';
 
 export default function App() {
   return (
@@ -16,6 +17,7 @@ export default function App() {
           <Route path="dash" element={<Dashboard />} />
           <Route path="login" element={<Login />} />
           <Route path="register" element={<Register />} />
+          <Route path="verifyemail" element={<VerifyEmail />} />
         </Route>
       </Routes>
     </BrowserRouter>

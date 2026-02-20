@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { TextField, Button, Typography, Box, Alert } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import Captcha, { type CaptchaRef } from '../components/Captcha';
+import { validateEmail } from '../utils/email';
 
 export default function Register() {
   const [email, setEmail] = useState('');
@@ -16,11 +17,13 @@ export default function Register() {
   const captchaRef = useRef<CaptchaRef>(null);
   const navigate = useNavigate();
 
+
+
   function validate() {
     setError(null);
     setCaptchaError(false);
 
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    if (!email || !validateEmail(email)) {
       setError('Please input valid email address 请输入有效的邮箱地址。');
       return false;
     }
@@ -48,6 +51,8 @@ export default function Register() {
 
     return true;
   }
+
+
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { TextField, Button, Typography, Box, Alert } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
+import { validateEmail } from '../utils/email';
 import { setAuthCookies } from '../utils/cookie';
 import type { LoginResponse } from '../global';
 
@@ -15,7 +16,7 @@ export default function Login() {
   function validate() {
     setError(null);
 
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    if (!email || !validateEmail(email)) {
       setError('Please input valid email address 请输入有效的邮箱地址。');
       return false;
     }
