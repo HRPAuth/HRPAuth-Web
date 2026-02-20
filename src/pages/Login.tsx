@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { TextField, Button, Typography, Box, Alert } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
+import { setAuthCookies } from '../utils/cookie';
+import type { LoginResponse } from '../global';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -34,8 +36,11 @@ export default function Login() {
     setError(null);
 
     try {
-      const base = (window as any).BACKEND_URL?.replace(/\/$/, '') || '';
+      const base = (window as Window & { BACKEND_URL?: string }).BACKEND_URL?.replace(/\/$/, '') || '';
       const url = base + '/login.php';
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
 
       const resp = await fetch(url, {
         method: 'POST',
@@ -47,23 +52,37 @@ export default function Login() {
           email,
           password,
         }),
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
 
       const data = await resp.json().catch(() => ({
         success: false,
         message: '服务器返回无法解析的响应',
-      }));
+      })) as LoginResponse | { success: false; message: string };
 
       if (!resp.ok || data.success === false) {
         setError(data.message || 'Please login again 请重新登录');
       } else if (data.success === true) {
+        setAuthCookies(email, data.token);
         setSuccess(true);
         setTimeout(() => navigate('/dash'), 700);
       } else {
         setError('未知响应');
       }
     } catch (err) {
-      setError('网络错误：无法连接到后端。');
+      if (err instanceof Error) {
+        if (err.name === 'AbortError') {
+          setError('请求超时，请检查网络连接后重试');
+        } else if (err.message.includes('Failed to fetch')) {
+          setError('网络错误：无法连接到后端服务器');
+        } else {
+          setError(`登录失败：${err.message}`);
+        }
+      } else {
+        setError('网络错误：无法连接到后端');
+      }
     } finally {
       setLoading(false);
     }
