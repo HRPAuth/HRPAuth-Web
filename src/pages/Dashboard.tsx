@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Box, Typography, Card, CardContent, Avatar, CircularProgress, Alert, Chip, Stack, Link } from '@mui/material';
 import { CheckCircle, Warning } from '@mui/icons-material';
 import { Link as RouterLink } from 'react-router-dom';
-import { getUserEmail, getAuthToken } from '../utils/cookie';
+import { getUserEmail, getAuthToken, getUid } from '../utils/cookie';
 
 interface UserInfo {
   email: string;
@@ -20,8 +20,9 @@ export default function Dashboard() {
     const fetchUserInfo = async () => {
       const email = getUserEmail();
       const token = getAuthToken();
+      const uid = getUid();
 
-      if (!email || !token) {
+      if (!email || !token || !uid) {
         setError('未登录或登录已过期');
         setLoading(false);
         return;
@@ -29,7 +30,7 @@ export default function Dashboard() {
 
       try {
         const base = window.BACKEND_URL?.replace(/\/$/, '') || '';
-        const url = base + '/user.php';
+        const url = base + `/user.php?uid=${encodeURIComponent(uid)}&remember_token=${encodeURIComponent(token)}`;
 
         const resp = await fetch(url, {
           method: 'GET',

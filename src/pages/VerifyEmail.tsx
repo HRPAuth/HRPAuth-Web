@@ -56,7 +56,9 @@ export default function VerifyEmail() {
     setError(null);
 
     try {
-      const response = await fetch('/send-verification-code.php', {
+      const base = window.BACKEND_URL?.replace(/\/$/, '') || '';
+      const url = base + '/send-verification-code.php';
+      const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
@@ -94,7 +96,9 @@ export default function VerifyEmail() {
     setSuccess(null);
 
     try {
-      const response = await fetch('/verify-code.php', {
+      const base = window.BACKEND_URL?.replace(/\/$/, '') || '';
+      const url = base + '/verify-code.php';
+      const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, code: verificationCode }),

@@ -62,7 +62,7 @@ export function deleteCookie(name: string, options: Pick<CookieOptions, 'domain'
   document.cookie = cookieString;
 }
 
-export function setAuthCookies(email: string, token: string): void {
+export function setAuthCookies(email: string, token: string, uid: string): void {
   const farFuture = new Date();
   farFuture.setFullYear(farFuture.getFullYear() + 10);
 
@@ -73,7 +73,7 @@ export function setAuthCookies(email: string, token: string): void {
     secure: window.location.protocol === 'https'
   });
 
-  setCookie('auth_token', token, {
+  setCookie('hrpa_auth', `${uid}|${token}`, {
     expires: farFuture,
     path: '/',
     sameSite: 'lax',
@@ -83,13 +83,25 @@ export function setAuthCookies(email: string, token: string): void {
 
 export function clearAuthCookies(): void {
   deleteCookie('user_email');
-  deleteCookie('auth_token');
+  deleteCookie('hrpa_auth');
 }
 
 export function getAuthToken(): string | null {
-  return getCookie('auth_token');
+  const hrpaAuth = getCookie('hrpa_auth');
+  if (!hrpaAuth) return null;
+  
+  const parts = hrpaAuth.split('|');
+  return parts.length === 2 ? parts[1] : null;
 }
 
 export function getUserEmail(): string | null {
   return getCookie('user_email');
+}
+
+export function getUid(): string | null {
+  const hrpaAuth = getCookie('hrpa_auth');
+  if (!hrpaAuth) return null;
+  
+  const parts = hrpaAuth.split('|');
+  return parts.length === 2 ? parts[0] : null;
 }

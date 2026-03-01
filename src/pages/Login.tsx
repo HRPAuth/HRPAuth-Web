@@ -66,7 +66,7 @@ export default function Login() {
       if (!resp.ok || data.success === false) {
         setError(data.message || 'Please login again 请重新登录');
       } else if (data.success === true) {
-        setAuthCookies(email, data.token);
+        setAuthCookies(email, data.token, data.uid);
         setSuccess(true);
         setTimeout(() => navigate('/dash'), 700);
       } else {

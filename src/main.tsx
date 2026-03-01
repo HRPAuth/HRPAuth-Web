@@ -4,6 +4,10 @@ import { createRoot } from 'react-dom/client'
 // @ts-expect-error CSS imports don't need type definitions
 import './index.css'
 import App from './App.tsx'
+import { getBackendUrl } from './utils/config.ts'
+
+// 设置全局后端地址
+window.BACKEND_URL = getBackendUrl();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

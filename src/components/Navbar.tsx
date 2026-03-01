@@ -28,11 +28,22 @@ export default function Navbar() {
     setAnchorEl(null);
   };
 
-  const handleLogout = () => {
-    clearAuthCookies();
-    setIsLoggedIn(false);
-    handleMenuClose();
-    navigate('/');
+  const handleLogout = async () => {
+    try {
+      const base = window.BACKEND_URL?.replace(/\/$/, '') || '';
+      const url = base + '/logout.php';
+      await fetch(url, {
+        method: 'GET',
+        credentials: 'include',
+      });
+    } catch (error) {
+      console.error('Logout API error:', error);
+    } finally {
+      clearAuthCookies();
+      setIsLoggedIn(false);
+      handleMenuClose();
+      navigate('/');
+    }
   };
 
   const userEmail = getUserEmail();
