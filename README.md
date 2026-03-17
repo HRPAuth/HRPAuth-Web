@@ -1,6 +1,6 @@
 # HRPAuth MUI frontend
 # Requirements
-  1.NPM
+  1.NPM  
   2.Node (>=22 is highly recomended)
 # 🚀 Quick Start
 ## 1. Clone the repository
