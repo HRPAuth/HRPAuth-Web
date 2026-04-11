@@ -1,4 +1,5 @@
 import { Box, Typography, } from "@mui/material";
+import logo from "../../logo.png";
 
 export default function Home() {
 	return (
@@ -12,7 +13,7 @@ export default function Home() {
 					mx: "auto",
 					mt: "5%",
 					mb: "2%",
-					backgroundImage: "url('/logo.png')",
+					backgroundImage: `url(${logo})`,
 					backgroundSize: "contain",
 					backgroundPosition: "center",
 					backgroundRepeat: "no-repeat",
@@ -29,7 +30,7 @@ export default function Home() {
 					<Typography variant="body1" paragraph>
 						A minecraft authentication service, which is designed for <a href="//mc.samuelchest.com/" target="_blank" rel="noopener noreferrer">RevolutionMC</a>.
 					</Typography>
-	
+				
 				</Box>
 			</Box>
 		</>
