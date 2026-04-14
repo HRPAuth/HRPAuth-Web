@@ -62,7 +62,7 @@ export function deleteCookie(name: string, options: Pick<CookieOptions, 'domain'
   document.cookie = cookieString;
 }
 
-export function setAuthCookies(email: string, token: string, uid: string): void {
+export function setAuthCookies(email: string, token: string, uid: string, verified?: boolean): void {
   const farFuture = new Date();
   farFuture.setFullYear(farFuture.getFullYear() + 10);
 
@@ -79,11 +79,27 @@ export function setAuthCookies(email: string, token: string, uid: string): void 
     sameSite: 'lax',
     secure: window.location.protocol === 'https'
   });
+
+  if (verified !== undefined) {
+    setCookie('verified', verified.toString(), {
+      expires: farFuture,
+      path: '/',
+      sameSite: 'lax',
+      secure: window.location.protocol === 'https'
+    });
+  }
+}
+
+export function getVerified(): boolean | null {
+  const verified = getCookie('verified');
+  if (verified === null) return null;
+  return verified === 'true';
 }
 
 export function clearAuthCookies(): void {
   deleteCookie('user_email');
   deleteCookie('hrpa_auth');
+  deleteCookie('verified');
 }
 
 export function getAuthToken(): string | null {

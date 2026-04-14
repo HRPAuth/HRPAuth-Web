@@ -2,13 +2,13 @@ import { useState, useEffect } from 'react';
 import { Box, Typography, Card, CardContent, Avatar, CircularProgress, Alert, Chip, Stack, Link } from '@mui/material';
 import { CheckCircle, Warning } from '@mui/icons-material';
 import { Link as RouterLink } from 'react-router-dom';
-import { getUserEmail, getAuthToken, getUid } from '../utils/cookie';
+import { getUserEmail, getAuthToken, getUid, getVerified } from '../utils/cookie';
 
 interface UserInfo {
   email: string;
   nickname: string;
   avatar?: string;
-  is_verified?: boolean;
+  verified?: boolean;
 }
 
 export default function Dashboard() {
@@ -50,18 +50,20 @@ export default function Dashboard() {
             email: data.data.email || email,
             nickname: data.data.nickname || email.split('@')[0],
             avatar: data.data.avatar,
-            is_verified: data.data.is_verified,
+            verified: data.data.verified,
           });
         } else {
           setUserInfo({
             email,
             nickname: email.split('@')[0],
+            verified: getVerified(),
           });
         }
       } catch {
         setUserInfo({
           email,
           nickname: email.split('@')[0],
+          verified: getVerified(),
         });
       } finally {
         setLoading(false);
@@ -104,7 +106,7 @@ export default function Dashboard() {
         Dashboard
       </Typography>
 
-      {!userInfo.is_verified && (
+      {!userInfo.verified && (
         <Alert severity="warning" sx={{ mb: 2 }}>
           您的邮箱尚未验证，请尽快验证邮箱以享受完整功能。
           <Box sx={{ mt: 1 }}>
@@ -138,9 +140,9 @@ export default function Dashboard() {
             </Typography>
             <Stack direction="row" alignItems="center" spacing={1}>
               <Chip
-                icon={userInfo.is_verified ? <CheckCircle /> : <Warning />}
-                label={userInfo.is_verified ? '邮箱已验证' : '邮箱未验证'}
-                color={userInfo.is_verified ? 'success' : 'warning'}
+                icon={userInfo.verified ? <CheckCircle /> : <Warning />}
+                label={userInfo.verified ? '邮箱已验证' : '邮箱未验证'}
+                color={userInfo.verified ? 'success' : 'warning'}
                 size="small"
                 variant="outlined"
               />

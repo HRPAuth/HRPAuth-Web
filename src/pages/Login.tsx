@@ -66,7 +66,31 @@ export default function Login() {
       if (!resp.ok || data.success === false) {
         setError(data.message || 'Please login again 请重新登录');
       } else if (data.success === true) {
-        setAuthCookies(email, data.token, data.uid);
+        // 登录成功后，获取用户信息以获取is_verified状态
+        try {
+          const base = (window as Window & { BACKEND_URL?: string }).BACKEND_URL?.replace(/\/$/, '') || '';
+          const userUrl = base + '/user';
+          
+          const userResp = await fetch(userUrl, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+          });
+          
+          const userData = await userResp.json().catch(() => ({
+            success: false,
+            message: '服务器返回无法解析的响应',
+          }));
+          
+          const verified = userResp.ok && userData.success && userData.data ? userData.data.verified : undefined;
+          setAuthCookies(email, data.token, data.uid, verified);
+        } catch {
+          // 如果获取用户信息失败，仍然设置基本的认证cookie
+          setAuthCookies(email, data.token, data.uid);
+        }
+        
         setSuccess(true);
         setTimeout(() => navigate('/dash'), 700);
       } else {

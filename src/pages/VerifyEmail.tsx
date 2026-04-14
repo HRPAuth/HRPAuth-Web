@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { TextField, Button, Typography, Box, Alert } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { validateEmail } from '../utils/email';
+import { setCookie } from '../utils/cookie';
 
 export default function VerifyEmail() {
   const [email, setEmail] = useState('');
@@ -116,6 +117,15 @@ export default function VerifyEmail() {
 
       if (result.success) {
         setSuccess('邮箱验证成功！');
+        // 更新verified cookie为true
+        const farFuture = new Date();
+        farFuture.setFullYear(farFuture.getFullYear() + 10);
+        setCookie('verified', 'true', {
+          expires: farFuture,
+          path: '/',
+          sameSite: 'lax',
+          secure: window.location.protocol === 'https'
+        });
         setTimeout(() => navigate('/dash'), 1500);
       } else {
         setError(result.message);
