@@ -1,5 +1,5 @@
 import { Box, Typography, } from "@mui/material";
-import logo from "../../logo.png";
+import logo from "/revolution.png";
 
 export default function Home() {
 	return (
@@ -10,7 +10,7 @@ export default function Home() {
 					width: "50%",
 					maxWidth: "600px",
 					aspectRatio: "16/9",
-					mx: "auto",
+					marginX: "auto",
 					mt: "5%",
 					mb: "2%",
 					backgroundImage: `url(${logo})`,

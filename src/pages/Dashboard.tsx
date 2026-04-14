@@ -30,7 +30,7 @@ export default function Dashboard() {
 
       try {
         const base = window.BACKEND_URL?.replace(/\/$/, '') || '';
-        const url = base + `/user.php?uid=${encodeURIComponent(uid)}&remember_token=${encodeURIComponent(token)}`;
+        const url = base + '/user';
 
         const resp = await fetch(url, {
           method: 'GET',

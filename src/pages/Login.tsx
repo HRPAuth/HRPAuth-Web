@@ -38,7 +38,7 @@ export default function Login() {
 
     try {
       const base = (window as Window & { BACKEND_URL?: string }).BACKEND_URL?.replace(/\/$/, '') || '';
-      const url = base + '/login.php';
+      const url = base + '/login';
 
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 15000);

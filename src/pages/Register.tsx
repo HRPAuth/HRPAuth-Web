@@ -70,7 +70,7 @@ export default function Register() {
 
     try {
       const base = window.BACKEND_URL?.replace(/\/$/, '') || '';
-      const url = base + '/register.php';
+      const url = base + '/register';
 
       const resp = await fetch(url, {
         method: 'POST',

@@ -20,36 +20,37 @@ export default function DashboardDebug() {
   const [debugInfo, setDebugInfo] = useState<DebugInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const isLoggedIn = !!(getAuthToken() && getUid());
 
   useEffect(() => {
     const fetchRawData = async () => {
       const token = getAuthToken();
       const uid = getUid();
-
-      if (!token || !uid) {
-        setError('未登录或登录已过期');
-        setLoading(false);
-        return;
-      }
+      const isLoggedIn = !!(token && uid);
 
       const startTime = performance.now();
       const timestamp = new Date().toISOString();
 
       try {
-        const base = window.BACKEND_URL?.replace(/\/\$/, '') || '';
-        const url = base + `/user.php?uid=${encodeURIComponent(uid)}&remember_token=${encodeURIComponent(token)}`;
+        const base = window.BACKEND_URL?.replace(/\/$/, '') || '';
+        // 如果未登录，请求后端根路径（门户页）；如果已登录，请求用户信息接口
+        const url = isLoggedIn ? base + '/user' : base + '/';
 
         const requestHeaders: Record<string, string> = {
           'Content-Type': 'application/json',
         };
 
-        const requestParams: Record<string, string> = {
+        const requestParams: Record<string, string> = isLoggedIn ? {
           uid: uid,
           remember_token: token.substring(0, 20) + '...',
+        } : {
+          status: '未登录',
+          mode: '获取门户元数据'
         };
 
         console.log('========== DashboardDebug 请求开始 ==========');
         console.log('请求目标:', url);
+        console.log('状态:', isLoggedIn ? '已登录' : '未登录');
         console.log('请求方法: GET');
         console.log('请求头:', requestHeaders);
         console.log('请求参数:', requestParams);
@@ -70,10 +71,22 @@ export default function DashboardDebug() {
         console.log('响应状态:', resp.status, resp.statusText);
         console.log('响应头:', responseHeaders);
 
-        const data = await resp.json().catch(() => ({
-          success: false,
-          message: '服务器返回无法解析的响应',
-        }));
+        // 尝试解析 JSON，如果失败则尝试获取文本（门户页可能是 HTML 或重定向）
+        let data: any;
+        const contentType = resp.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          data = await resp.json().catch(() => ({
+            success: false,
+            message: '服务器返回了 JSON Content-Type 但无法解析内容',
+          }));
+        } else {
+          const text = await resp.text().catch(() => '无法读取响应内容');
+          data = {
+            isRawText: true,
+            contentType: contentType || 'unknown',
+            content: text.length > 5000 ? text.substring(0, 5000) + '... (内容过长已截断)' : text
+          };
+        }
 
         console.log('响应内容:', data);
         console.log('请求耗时:', duration + 'ms');
@@ -147,6 +160,12 @@ export default function DashboardDebug() {
           Dashboard Debug
         </Typography>
         <Chip label="调试模式" color="info" size="small" />
+        <Chip 
+          label={isLoggedIn ? "用户模式" : "门户元数据模式"} 
+          color={isLoggedIn ? "success" : "warning"} 
+          variant="outlined"
+          size="small" 
+        />
       </Stack>
 
       {error && (
@@ -231,7 +250,13 @@ export default function DashboardDebug() {
               whiteSpace: 'pre-wrap',
               wordBreak: 'break-word'
             }}>
-              {rawData !== null ? JSON.stringify(rawData, null, 2) : '暂无数据'}
+              {rawData !== null ? (
+              rawData.isRawText ? (
+                `[${rawData.contentType}]\n\n${rawData.content}`
+              ) : (
+                JSON.stringify(rawData, null, 2)
+              )
+            ) : '暂无数据'}
             </pre>
           </Paper>
         </CardContent>

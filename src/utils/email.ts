@@ -16,13 +16,13 @@ export interface SendEmailResponse {
 export async function sendTestEmail(data: SendEmailRequest): Promise<SendEmailResponse> {
   try {
     const base = window.BACKEND_URL?.replace(/\/$/, '') || '';
-    const url = base + '/send-test-email.php';
+    const url = base + '/email-verification';
 
     const resp = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify(data),
+      body: JSON.stringify({ action: 'send-test-email', ...data }),
     });
 
     const responseData = await resp.json().catch(() => ({

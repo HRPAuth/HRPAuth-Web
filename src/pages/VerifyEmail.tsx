@@ -57,11 +57,11 @@ export default function VerifyEmail() {
 
     try {
       const base = window.BACKEND_URL?.replace(/\/$/, '') || '';
-      const url = base + '/send-verification-code.php';
+      const url = base + '/email-verification';
       const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ action: 'send-verification-code', email }),
       });
 
       const text = await response.text();
@@ -97,11 +97,11 @@ export default function VerifyEmail() {
 
     try {
       const base = window.BACKEND_URL?.replace(/\/$/, '') || '';
-      const url = base + '/verify-code.php';
+      const url = base + '/email-verification';
       const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, code: verificationCode }),
+        body: JSON.stringify({ action: 'verify-code', email, code: verificationCode }),
       });
 
       const text = await response.text();

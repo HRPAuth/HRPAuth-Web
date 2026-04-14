@@ -31,7 +31,7 @@ export default function Navbar() {
   const handleLogout = async () => {
     try {
       const base = window.BACKEND_URL?.replace(/\/$/, '') || '';
-      const url = base + '/logout.php';
+      const url = base + '/logout';
       await fetch(url, {
         method: 'GET',
         credentials: 'include',
@@ -88,6 +88,9 @@ export default function Navbar() {
             >
               <MenuItem component={Link} to="/dash" onClick={handleMenuClose}>
                 Dashboard
+              </MenuItem>
+              <MenuItem component={Link} to="/dashdebug" onClick={handleMenuClose}>
+                Debug
               </MenuItem>
               <MenuItem component={Link} to="/skinlib" onClick={handleMenuClose}>
                 SkinLib
