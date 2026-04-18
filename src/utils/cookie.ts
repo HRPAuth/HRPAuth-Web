@@ -90,9 +90,9 @@ export function setAuthCookies(email: string, token: string, uid: string, verifi
   }
 }
 
-export function getVerified(): boolean | null {
+export function getVerified(): boolean | undefined {
   const verified = getCookie('verified');
-  if (verified === null) return null;
+  if (verified === null) return undefined;
   return verified === 'true';
 }
 
