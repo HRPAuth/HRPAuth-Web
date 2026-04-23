@@ -72,11 +72,12 @@ export default function Login() {
           const userUrl = base + '/user';
           
           const userResp = await fetch(userUrl, {
-            method: 'GET',
+            method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
             credentials: 'include',
+            body: JSON.stringify({ remember_token: data.token, uid: data.uid, email }),
           });
           
           const userData = await userResp.json().catch(() => ({

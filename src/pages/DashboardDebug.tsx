@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Box, Typography, Card, CardContent, CircularProgress, Alert, Paper, Stack, Chip, Divider } from '@mui/material';
-import { getAuthToken, getUid } from '../utils/cookie';
+import { getAuthToken, getUid, getUserEmail } from '../utils/cookie';
 
 interface DebugInfo {
   requestUrl: string;
@@ -20,13 +20,14 @@ export default function DashboardDebug() {
   const [debugInfo, setDebugInfo] = useState<DebugInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const isLoggedIn = !!(getAuthToken() && getUid());
+  const isLoggedIn = !!(getAuthToken() && getUid() && getUserEmail());
 
   useEffect(() => {
     const fetchRawData = async () => {
       const token = getAuthToken();
       const uid = getUid();
-      const isLoggedIn = !!(token && uid);
+      const email = getUserEmail();
+      const isLoggedIn = !!(token && uid && email);
 
       const startTime = performance.now();
       const timestamp = new Date().toISOString();
@@ -42,6 +43,7 @@ export default function DashboardDebug() {
 
         const requestParams: Record<string, string> = isLoggedIn ? {
           uid: uid,
+          email: email,
           remember_token: token.substring(0, 20) + '...',
         } : {
           status: '未登录',
@@ -51,15 +53,23 @@ export default function DashboardDebug() {
         console.log('========== DashboardDebug 请求开始 ==========');
         console.log('请求目标:', url);
         console.log('状态:', isLoggedIn ? '已登录' : '未登录');
-        console.log('请求方法: GET');
+        console.log('请求方法:', isLoggedIn ? 'POST' : 'GET');
         console.log('请求头:', requestHeaders);
         console.log('请求参数:', requestParams);
 
-        const resp = await fetch(url, {
-          method: 'GET',
+        const fetchOptions: RequestInit = {
           headers: requestHeaders,
           credentials: 'include',
-        });
+        };
+
+        if (isLoggedIn) {
+          fetchOptions.method = 'POST';
+          fetchOptions.body = JSON.stringify({ remember_token: token, uid, email });
+        } else {
+          fetchOptions.method = 'GET';
+        }
+
+        const resp = await fetch(url, fetchOptions);
 
         const duration = Math.round(performance.now() - startTime);
 
@@ -94,7 +104,7 @@ export default function DashboardDebug() {
 
         setDebugInfo({
           requestUrl: url,
-          requestMethod: 'GET',
+          requestMethod: isLoggedIn ? 'POST' : 'GET',
           requestHeaders,
           requestParams,
           responseStatus: resp.status,

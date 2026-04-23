@@ -33,11 +33,12 @@ export default function Dashboard() {
         const url = base + '/user';
 
         const resp = await fetch(url, {
-          method: 'GET',
+          method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           credentials: 'include',
+          body: JSON.stringify({ remember_token: token, uid, email }),
         });
 
         const data = await resp.json().catch(() => ({
