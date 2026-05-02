@@ -5,7 +5,16 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   publicDir: 'public',
-    server: {
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom']
+        }
+      }
+    }
+  },
+  server: {
     proxy: {
       '/relay.php': {
         target: 'http://hrpauth.samuelcheston.com', // 你的目标后端
