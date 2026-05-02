@@ -1,8 +1,56 @@
 import { useState, useEffect } from 'react';
-import { Box, Typography, Card, CardContent, Avatar, CircularProgress, Alert, Chip, Stack, Link } from '@mui/material';
+import * as React from 'react';
+import { Box, Typography, Card, CardContent, Avatar, CircularProgress, Alert, Chip, Stack, Link, Tabs, Tab, IconButton, Tooltip } from '@mui/material';
 import { CheckCircle, Warning } from '@mui/icons-material';
+import ContentCopy from '@mui/icons-material/ContentCopy';
 import { Link as RouterLink } from 'react-router-dom';
 import { getUserEmail, getAuthToken, getUid, getVerified } from '../utils/cookie';
+import { getRealBackendUrl } from '../utils/config';
+
+function CodeBlock({ children }: { children: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(children);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+
+  return (
+    <Box
+      sx={{
+        position: "relative",
+        bgcolor: "grey.900",
+        color: "grey.100",
+        p: 2,
+        borderRadius: 2,
+        fontFamily: "monospace",
+        fontSize: "0.9rem",
+        whiteSpace: "pre-wrap",
+        border: "1px solid",
+        borderColor: "grey.800",
+      }}
+    >
+      <Tooltip title={copied ? "Copied!" : "Copy"}>
+        <IconButton
+          size="small"
+          onClick={handleCopy}
+          sx={{
+            position: "absolute",
+            top: 8,
+            right: 8,
+            color: "grey.400",
+            "&:hover": { color: "grey.200" },
+          }}
+        >
+          <ContentCopy fontSize="small" />
+        </IconButton>
+      </Tooltip>
+
+      {children}
+    </Box>
+  );
+}
 
 interface UserInfo {
   email: string;
@@ -15,12 +63,16 @@ export default function Dashboard() {
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [backendUrl, setBackendUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchUserInfo = async () => {
+    const fetchData = async () => {
       const email = getUserEmail();
       const token = getAuthToken();
       const uid = getUid();
+
+      const realBackendUrl = await getRealBackendUrl();
+      setBackendUrl(realBackendUrl);
 
       if (!email || !token || !uid) {
         setError('未登录或登录已过期');
@@ -29,7 +81,7 @@ export default function Dashboard() {
       }
 
       try {
-        const base = window.BACKEND_URL?.replace(/\/$/, '') || '';
+        const base = realBackendUrl?.replace(/\/$/, '') || '';
         const url = base + '/user';
 
         const resp = await fetch(url, {
@@ -51,27 +103,27 @@ export default function Dashboard() {
             email: data.data.email || email,
             nickname: data.data.nickname || email.split('@')[0],
             avatar: data.data.avatar,
-            verified: data.data.verified,
+            verified: Boolean(data.data.verified),
           });
         } else {
           setUserInfo({
             email,
             nickname: email.split('@')[0],
-            verified: getVerified(),
+            verified: Boolean(getVerified()),
           });
         }
       } catch {
         setUserInfo({
           email,
           nickname: email.split('@')[0],
-          verified: getVerified(),
+          verified: Boolean(getVerified()),
         });
       } finally {
         setLoading(false);
       }
     };
 
-    fetchUserInfo();
+    fetchData();
   }, []);
 
   if (loading) {
@@ -88,7 +140,7 @@ export default function Dashboard() {
         {error}
         <Box sx={{ mt: 1 }}>
           <Link component={RouterLink} to="/verifyemail" color="primary">
-            点击此处进行邮箱验证
+            Verify email now
           </Link>
         </Box>
       </Alert>
@@ -109,10 +161,10 @@ export default function Dashboard() {
 
       {!userInfo.verified && (
         <Alert severity="warning" sx={{ mb: 2 }}>
-          您的邮箱尚未验证，请尽快验证邮箱以享受完整功能。
+          Your email is not verified. Please verify your email to access full features.
           <Box sx={{ mt: 1 }}>
             <Link component={RouterLink} to="/verifyemail" color="primary">
-              立即验证邮箱
+              Verify email now
             </Link>
           </Box>
         </Alert>
@@ -142,7 +194,7 @@ export default function Dashboard() {
             <Stack direction="row" alignItems="center" spacing={1}>
               <Chip
                 icon={userInfo.verified ? <CheckCircle /> : <Warning />}
-                label={userInfo.verified ? '邮箱已验证' : '邮箱未验证'}
+                label={userInfo.verified ? 'Email verified' : 'Email not verified'}
                 color={userInfo.verified ? 'success' : 'warning'}
                 size="small"
                 variant="outlined"
@@ -151,6 +203,78 @@ export default function Dashboard() {
           </Box>
         </CardContent>
       </Card>
+
+      <Box sx={{ mt: 4 }}>
+        <BasicTabs backendUrl={backendUrl} />
+      </Box>
+    </Box>
+  );
+}
+
+interface TabPanelProps {
+  children?: React.ReactNode;
+  index: number;
+  value: number;
+}
+
+function CustomTabPanel(props: TabPanelProps) {
+  const { children, value, index, ...other } = props;
+
+  return (
+    <div
+      role="tabpanel"
+      hidden={value !== index}
+      id={`simple-tabpanel-${index}`}
+      aria-labelledby={`simple-tab-${index}`}
+      {...other}
+    >
+      {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
+    </div>
+  );
+}
+
+function a11yProps(index: number) {
+  return {
+    id: `simple-tab-${index}`,
+    'aria-controls': `simple-tabpanel-${index}`,
+  };
+}
+
+interface BasicTabsProps {
+  backendUrl: string | null;
+}
+
+export function BasicTabs({ backendUrl }: BasicTabsProps) {
+  const [value, setValue] = React.useState(0);
+
+  const handleChange = (_event: React.SyntheticEvent, newValue: number) => {
+    setValue(newValue);
+  };
+
+  return (
+    <Box sx={{ width: '100%' }}>
+      <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+        <Tabs value={value} onChange={handleChange} aria-label="basic tabs example">
+          <Tab label="Yggdrasil API" {...a11yProps(0)} />
+          <Tab label="CustomskinLoader" {...a11yProps(1)} />
+          <Tab label="OAuth2" {...a11yProps(2)} />
+        </Tabs>
+      </Box>
+      <CustomTabPanel value={value} index={0}>
+        There is a built-in yggdrasil API service (Zggdrasil) available.
+        <CodeBlock>
+   {backendUrl || 'Loading...'}
+          </CodeBlock>
+          <p>
+            Please copy the URL above to your launcher to access the API.
+          </p>
+      </CustomTabPanel>
+      <CustomTabPanel value={value} index={1}>
+        Pending supported
+      </CustomTabPanel>
+      <CustomTabPanel value={value} index={2}>
+        Pending supported
+      </CustomTabPanel>
     </Box>
   );
 }
