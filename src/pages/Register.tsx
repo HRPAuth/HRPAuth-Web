@@ -3,6 +3,7 @@ import { TextField, Button, Typography, Box, Alert } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import Captcha, { type CaptchaRef } from '../components/Captcha';
 import { validateEmail } from '../utils/email';
+import { getBackendUrl } from '../utils/config';
 
 export default function Register() {
   const [email, setEmail] = useState('');
@@ -69,7 +70,7 @@ export default function Register() {
     setError(null);
 
     try {
-      const base = window.BACKEND_URL?.replace(/\/$/, '') || '';
+      const base = getBackendUrl();
       const url = base + '/register';
 
       const resp = await fetch(url, {

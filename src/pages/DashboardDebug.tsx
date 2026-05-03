@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Box, Typography, Card, CardContent, CircularProgress, Alert, Paper, Stack, Chip, Divider } from '@mui/material';
 import { getAuthToken, getUid, getUserEmail } from '../utils/cookie';
+import { getBackendUrl } from '../utils/config';
 
 interface DebugInfo {
   requestUrl: string;
@@ -33,7 +34,7 @@ export default function DashboardDebug() {
       const timestamp = new Date().toISOString();
 
       try {
-        const base = window.BACKEND_URL?.replace(/\/$/, '') || '';
+        const base = getBackendUrl();
         // 如果未登录，请求后端根路径（门户页）；如果已登录，请求用户信息接口
         const url = isLoggedIn ? base + '/user' : base + '/';
 

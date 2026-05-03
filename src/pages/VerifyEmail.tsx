@@ -3,6 +3,7 @@ import { TextField, Button, Typography, Box, Alert } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { validateEmail } from '../utils/email';
 import { setCookie } from '../utils/cookie';
+import { getBackendUrl } from '../utils/config';
 
 export default function VerifyEmail() {
   const [email, setEmail] = useState('');
@@ -57,7 +58,7 @@ export default function VerifyEmail() {
     setError(null);
 
     try {
-      const base = window.BACKEND_URL?.replace(/\/$/, '') || '';
+      const base = getBackendUrl();
       const url = base + '/email-verification';
       const response = await fetch(url, {
         method: 'POST',
@@ -97,7 +98,7 @@ export default function VerifyEmail() {
     setSuccess(null);
 
     try {
-      const base = window.BACKEND_URL?.replace(/\/$/, '') || '';
+      const base = getBackendUrl();
       const url = base + '/email-verification';
       const response = await fetch(url, {
         method: 'POST',
