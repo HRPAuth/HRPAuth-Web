@@ -1,21 +1,17 @@
-import { useState, useEffect } from 'react';
-import * as React from 'react';
-import { Box, Typography, Card, CardContent, Avatar, CircularProgress, Alert, Chip, Stack, Link, Tabs, Tab, IconButton, Tooltip } from '@mui/material';
-import { CheckCircle, Warning } from '@mui/icons-material';
-import ContentCopy from '@mui/icons-material/ContentCopy';
-import { Link as RouterLink } from 'react-router-dom';
-import { getUserEmail, getAuthToken, getUid, getVerified } from '../utils/cookie';
-import { getRealBackendUrl } from '../utils/config';
+import React, { useState } from 'react';
+import Drawer from '@mui/material/Drawer';
+import Toolbar from '@mui/material/Toolbar';
+import List from '@mui/material/List';
+import Typography from '@mui/material/Typography';
+import Divider from '@mui/material/Divider';
+import ListItem from '@mui/material/ListItem';
+import ListItemButton from '@mui/material/ListItemButton';
+import ListItemText from '@mui/material/ListItemText';
+import { Box, Card, CardContent, Grid, Button } from "@mui/material";
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+import { getBackendUrl } from '../utils/config';
 
 function CodeBlock({ children }: { children: string }) {
-  const [copied, setCopied] = useState(false);
-
-  const handleCopy = async () => {
-    await navigator.clipboard.writeText(children);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
-  };
-
   return (
     <Box
       sx={{
@@ -31,248 +27,136 @@ function CodeBlock({ children }: { children: string }) {
         borderColor: "grey.800",
       }}
     >
-      <Tooltip title={copied ? "Copied!" : "Copy"}>
-        <IconButton
-          size="small"
-          onClick={handleCopy}
-          sx={{
-            position: "absolute",
-            top: 8,
-            right: 8,
-            color: "grey.400",
-            "&:hover": { color: "grey.200" },
-          }}
-        >
-          <ContentCopy fontSize="small" />
-        </IconButton>
-      </Tooltip>
-
       {children}
     </Box>
   );
 }
 
-interface UserInfo {
-  email: string;
-  nickname: string;
-  avatar?: string;
-  verified?: boolean;
-}
+function YggdrasilDashboard() {
+  const baseUrl = getBackendUrl();
+  const [copied, setCopied] = useState(false);
 
-export default function Dashboard() {
-  const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [backendUrl, setBackendUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchData = async () => {
-      const email = getUserEmail();
-      const token = getAuthToken();
-      const uid = getUid();
-
-      const realBackendUrl = await getRealBackendUrl();
-      setBackendUrl(realBackendUrl);
-
-      if (!email || !token || !uid) {
-        setError('未登录或登录已过期');
-        setLoading(false);
-        return;
-      }
-
-      try {
-        const base = realBackendUrl?.replace(/\/$/, '') || '';
-        const url = base + '/user';
-
-        const resp = await fetch(url, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          credentials: 'include',
-          body: JSON.stringify({ remember_token: token, uid, email }),
-        });
-
-        const data = await resp.json().catch(() => ({
-          success: false,
-          message: '服务器返回无法解析的响应',
-        }));
-
-        if (resp.ok && data.success && data.data) {
-          setUserInfo({
-            email: data.data.email || email,
-            nickname: data.data.nickname || email.split('@')[0],
-            avatar: data.data.avatar,
-            verified: Boolean(data.data.verified),
-          });
-        } else {
-          setUserInfo({
-            email,
-            nickname: email.split('@')[0],
-            verified: Boolean(getVerified()),
-          });
-        }
-      } catch {
-        setUserInfo({
-          email,
-          nickname: email.split('@')[0],
-          verified: Boolean(getVerified()),
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, []);
-
-  if (loading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '200px' }}>
-        <CircularProgress />
-      </Box>
-    );
-  }
-
-  if (error) {
-    return (
-      <Alert severity="error">
-        {error}
-        <Box sx={{ mt: 1 }}>
-          <Link component={RouterLink} to="/verifyemail" color="primary">
-            Verify email now
-          </Link>
-        </Box>
-      </Alert>
-    );
-  }
-
-  if (!userInfo) {
-    return null;
-  }
-
-  const userInitial = userInfo.nickname ? userInfo.nickname.charAt(0).toUpperCase() : 'U';
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(baseUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
 
   return (
-    <Box>
-      <Typography variant="h4" gutterBottom>
-        Dashboard
-      </Typography>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+      <Typography variant="h6">There is a built-in Yggdrasil API service (Zggdrasil) available.</Typography>
 
-      {!userInfo.verified && (
-        <Alert severity="warning" sx={{ mb: 2 }}>
-          Your email is not verified. Please verify your email to access full features.
-          <Box sx={{ mt: 1 }}>
-            <Link component={RouterLink} to="/verifyemail" color="primary">
-              Verify email now
-            </Link>
-          </Box>
-        </Alert>
-      )}
+      <Grid container spacing={2}>
+        <Grid size={{ xs: 12, md: 6 }}>
+          <Card sx={{ height: '100%' }}>
+            <CardContent>
+              <Typography variant="subtitle2" color="text.secondary" gutterBottom>Server Address</Typography>
+              <CodeBlock>{baseUrl}</CodeBlock>
+              <Button
+                variant="contained"
+                startIcon={<ContentCopyIcon />}
+                onClick={handleCopy}
+                sx={{ mt: 2 }}
+                fullWidth
+              >
+                {copied ? 'Copied!' : 'Copy URL'}
+              </Button>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
 
-      <Card sx={{ maxWidth: 500, mt: 2 }}>
-        <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-          {userInfo.avatar ? (
-            <Avatar
-              src={userInfo.avatar}
-              alt={userInfo.nickname}
-              sx={{ width: 80, height: 80 }}
-            />
-          ) : (
-            <Avatar sx={{ width: 80, height: 80, bgcolor: 'secondary.main', fontSize: '2rem' }}>
-              {userInitial}
-            </Avatar>
-          )}
-
-          <Box sx={{ flex: 1 }}>
-            <Typography variant="h5" gutterBottom>
-              {userInfo.nickname}
-            </Typography>
-            <Typography variant="body1" color="text.secondary" gutterBottom>
-              {userInfo.email}
-            </Typography>
-            <Stack direction="row" alignItems="center" spacing={1}>
-              <Chip
-                icon={userInfo.verified ? <CheckCircle /> : <Warning />}
-                label={userInfo.verified ? 'Email verified' : 'Email not verified'}
-                color={userInfo.verified ? 'success' : 'warning'}
-                size="small"
-                variant="outlined"
-              />
-            </Stack>
-          </Box>
+      <Card>
+        <CardContent>
+          <Typography variant="subtitle2" color="text.secondary" gutterBottom>Usage Instructions</Typography>
+          <Typography variant="body2" component="div">
+            <Box component="ol" sx={{ pl: 2, m: 0 }}>
+              <li>Add the server address to your Minecraft launcher</li>
+              <li>Use your credentials to authenticate</li>
+              <li>Skins and capes will be loaded automatically</li>
+            </Box>
+          </Typography>
         </CardContent>
       </Card>
-
-      <Box sx={{ mt: 4 }}>
-        <BasicTabs backendUrl={backendUrl} />
-      </Box>
     </Box>
   );
 }
 
-interface TabPanelProps {
-  children?: React.ReactNode;
-  index: number;
-  value: number;
+const drawerWidth = 240;
+
+interface MenuItem {
+  id: string;
+  label: string;
+  content: string;
+  jsxContent?: React.ReactNode;
 }
 
-function CustomTabPanel(props: TabPanelProps) {
-  const { children, value, index, ...other } = props;
+const menuItems: MenuItem[] = [
+  { id: 'Yggdrasil API', label: 'Yggdrasil API', content: '', jsxContent: <YggdrasilDashboard /> },
+  { id: 'CustomSkinLoader', label: 'CustomSkinLoader', content: '', },
+  { id: 'OAuth2', label: 'OAuth2', content: '' },
+];
+
+export default function PermanentDrawerLeft() {
+  const [selectedItem, setSelectedItem] = useState<string | null>('inbox');
 
   return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`simple-tabpanel-${index}`}
-      aria-labelledby={`simple-tab-${index}`}
-      {...other}
-    >
-      {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
-    </div>
-  );
-}
-
-function a11yProps(index: number) {
-  return {
-    id: `simple-tab-${index}`,
-    'aria-controls': `simple-tabpanel-${index}`,
-  };
-}
-
-interface BasicTabsProps {
-  backendUrl: string | null;
-}
-
-export function BasicTabs({ backendUrl }: BasicTabsProps) {
-  const [value, setValue] = React.useState(0);
-
-  const handleChange = (_event: React.SyntheticEvent, newValue: number) => {
-    setValue(newValue);
-  };
-
-  return (
-    <Box sx={{ width: '100%' }}>
-      <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-        <Tabs value={value} onChange={handleChange} aria-label="basic tabs example">
-          <Tab label="Yggdrasil API" {...a11yProps(0)} />
-          <Tab label="CustomskinLoader" {...a11yProps(1)} />
-          <Tab label="OAuth2" {...a11yProps(2)} />
-        </Tabs>
+    <Box sx={{ display: 'flex', minHeight: 'calc(100vh - 64px)' }}>
+      <Drawer
+        sx={{
+          width: drawerWidth,
+          flexShrink: 0,
+          '& .MuiDrawer-paper': {
+            width: drawerWidth,
+            boxSizing: 'border-box',
+            position: 'relative',
+            height: 'auto',
+          },
+        }}
+        variant="permanent"
+        anchor="left"
+      >
+        <Toolbar />
+        <Divider />
+        <List>
+          {menuItems.slice(0, 4).map((item) => (
+            <ListItem key={item.id} disablePadding>
+              <ListItemButton
+                selected={selectedItem === item.id}
+                onClick={() => setSelectedItem(item.id)}
+              >
+                <ListItemText primary={item.label} />
+              </ListItemButton>
+            </ListItem>
+          ))}
+        </List>
+        <Divider />
+        <List>
+          {menuItems.slice(4).map((item) => (
+            <ListItem key={item.id} disablePadding>
+              <ListItemButton
+                selected={selectedItem === item.id}
+                onClick={() => setSelectedItem(item.id)}
+              >
+                <ListItemText primary={item.label} />
+              </ListItemButton>
+            </ListItem>
+          ))}
+        </List>
+      </Drawer>
+      <Box
+        component="main"
+        sx={{ flexGrow: 1, bgcolor: 'background.default', p: 3 }}
+      >
+        <Typography variant="h5" sx={{ marginBottom: 2 }}>
+          {menuItems.find(item => item.id === selectedItem)?.label}
+        </Typography>
+        {menuItems.find(item => item.id === selectedItem)?.jsxContent ?? (
+          <Typography sx={{ whiteSpace: 'pre-line' }}>
+            {menuItems.find(item => item.id === selectedItem)?.content}
+          </Typography>
+        )}
       </Box>
-      <CustomTabPanel value={value} index={0}>
-        There is a built-in yggdrasil API service (Zggdrasil) available.
-        <CodeBlock>{backendUrl || 'Loading...'}</CodeBlock>
-          <p>
-            Please copy the URL above to your launcher to access the API.
-          </p>
-      </CustomTabPanel>
-      <CustomTabPanel value={value} index={1}>
-        Pending supported
-      </CustomTabPanel>
-      <CustomTabPanel value={value} index={2}>
-        Pending supported
-      </CustomTabPanel>
     </Box>
   );
 }

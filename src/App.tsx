@@ -9,6 +9,7 @@ const DashboardDebug = lazy(() => import('./pages/DashboardDebug'));
 const Login = lazy(() => import('./pages/Login'));
 const Register = lazy(() => import('./pages/Register'));
 const VerifyEmail = lazy(() => import('./pages/VerifyEmail'));
+const Profile = lazy(() => import('./pages/Profile'));
 
 function LoadingFallback() {
   return (
@@ -37,6 +38,7 @@ export default function App() {
             <Route path="login" element={<Login />} />
             <Route path="register" element={<Register />} />
             <Route path="verifyemail" element={<VerifyEmail />} />
+            <Route path="profile" element={<Profile />} />
           </Route>
         </Routes>
       </Suspense>

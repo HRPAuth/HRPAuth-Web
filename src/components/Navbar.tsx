@@ -87,6 +87,9 @@ export default function Navbar() {
                 horizontal: 'right',
               }}
             >
+              <MenuItem component={Link} to="/profile" onClick={handleMenuClose}>
+                Profile
+              </MenuItem>
               <MenuItem component={Link} to="/dash" onClick={handleMenuClose}>
                 Dashboard
               </MenuItem>
