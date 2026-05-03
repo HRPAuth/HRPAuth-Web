@@ -262,9 +262,7 @@ export function BasicTabs({ backendUrl }: BasicTabsProps) {
       </Box>
       <CustomTabPanel value={value} index={0}>
         There is a built-in yggdrasil API service (Zggdrasil) available.
-        <CodeBlock>
-   {backendUrl || 'Loading...'}
-          </CodeBlock>
+        <CodeBlock>{backendUrl || 'Loading...'}</CodeBlock>
           <p>
             Please copy the URL above to your launcher to access the API.
           </p>
