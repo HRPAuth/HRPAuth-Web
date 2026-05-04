@@ -17,7 +17,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/relay.php': {
-        target: 'http://hrpauth.samuelcheston.com', // 你的目标后端
+        target: 'https://hrpauth.samuelcheston.com', // 你的目标后端
         changeOrigin: true,
 
         // 🔥 关键：把 /relay.php 去掉，后面的路径原样透传

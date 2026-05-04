@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Box, Typography, Card, CardContent, Avatar, CircularProgress, Alert, Chip, Stack, Link } from '@mui/material';
-import { CheckCircle, Warning } from '@mui/icons-material';
+import { Box, Typography, Card, CardContent, Avatar, CircularProgress, Alert, Chip, Stack, Link, TextField, Button } from '@mui/material';
+import { CheckCircle, Warning, Edit, Save } from '@mui/icons-material';
 import { Link as RouterLink } from 'react-router-dom';
 import { getUserEmail, getAuthToken, getUid, getVerified } from '../utils/cookie';
 
@@ -15,6 +15,11 @@ export default function Profile() {
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [editMode, setEditMode] = useState(false);
+  const [newUsername, setNewUsername] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -70,6 +75,66 @@ export default function Profile() {
 
     fetchData();
   }, []);
+
+  const handleSaveUsername = async () => {
+    if (!newUsername.trim()) {
+      setSaveError('名称不能为空');
+      return;
+    }
+
+    if (newUsername.length < 3 || newUsername.length > 16) {
+      setSaveError('名称长度必须在3-16个字符之间');
+      return;
+    }
+
+    if (!/^[a-zA-Z0-9_]+$/.test(newUsername)) {
+      setSaveError('名称只能包含字母、数字和下划线');
+      return;
+    }
+
+    setSaving(true);
+    setSaveError(null);
+    setSaveSuccess(false);
+
+    const token = getAuthToken();
+
+    try {
+      const resp = await fetch('/change-profile-name', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ remember_token: token, name: newUsername }),
+      });
+
+      const data = await resp.json().catch(() => ({
+        success: false,
+        message: '服务器返回无法解析的响应',
+      }));
+
+      if (data.success) {
+        setUserInfo(prev => prev ? { ...prev, nickname: newUsername } : null);
+        setSaveSuccess(true);
+        setEditMode(false);
+        setNewUsername('');
+        setTimeout(() => setSaveSuccess(false), 3000);
+      } else {
+        setSaveError(data.message || '修改失败');
+      }
+    } catch {
+      setSaveError('服务器错误');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditMode(false);
+    setNewUsername('');
+    setSaveError(null);
+    setSaveSuccess(false);
+  };
 
   if (loading) {
     return (
@@ -130,9 +195,58 @@ export default function Profile() {
           )}
 
           <Box sx={{ flex: 1 }}>
-            <Typography variant="h5" gutterBottom>
-              {userInfo.nickname}
-            </Typography>
+            {editMode ? (
+              <Box sx={{ mb: 2 }}>
+                <TextField
+                  label="New Username"
+                  value={newUsername}
+                  onChange={(e) => setNewUsername(e.target.value)}
+                  placeholder="3-16 characters, letters, numbers, underscores"
+                  fullWidth
+                  margin="dense"
+                  error={!!saveError}
+                  helperText={saveError}
+                />
+                <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
+                  <Button
+                    variant="contained"
+                    startIcon={<Save />}
+                    onClick={handleSaveUsername}
+                    disabled={saving}
+                  >
+                    {saving ? 'Saving...' : 'Save'}
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    onClick={handleCancelEdit}
+                    disabled={saving}
+                  >
+                    Cancel
+                  </Button>
+                </Stack>
+              </Box>
+            ) : (
+              <>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <Typography variant="h5" gutterBottom>
+                    {userInfo.nickname}
+                  </Typography>
+                  <Button
+                    startIcon={<Edit />}
+                    onClick={() => setEditMode(true)}
+                    size="small"
+                    color="primary"
+                  >
+                    Edit
+                  </Button>
+                </Box>
+                {saveSuccess && (
+                  <Alert severity="success" sx={{ mt: 1, mb: 2 }}>
+                    Username updated successfully!
+                  </Alert>
+                )}
+              </>
+            )}
             <Typography variant="body1" color="text.secondary" gutterBottom>
               {userInfo.email}
             </Typography>

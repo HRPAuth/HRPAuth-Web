@@ -1,5 +1,6 @@
 declare module '@mui/icons-material' {
   export const CheckCircle: React.ElementType;
   export const Warning: React.ElementType;
-  // Add other icons if needed
+  export const Edit: React.ElementType;
+  export const Save: React.ElementType;
 }
