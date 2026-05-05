@@ -1,14 +1,17 @@
 import { useState, useEffect } from 'react';
-import { Box, Typography, Card, CardContent, Avatar, CircularProgress, Alert, Chip, Stack, Link, TextField, Button } from '@mui/material';
-import { CheckCircle, Warning, Edit, Save } from '@mui/icons-material';
+import { Box, Typography, Card, CardContent, Avatar, CircularProgress, Alert, Chip, Stack, Link, TextField, Button, Dialog, DialogTitle, DialogContent, DialogActions, InputAdornment } from '@mui/material';
+import { CheckCircle, Warning, Edit, Save, Key } from '@mui/icons-material';
+import { QRCodeSVG } from 'qrcode.react';
 import { Link as RouterLink } from 'react-router-dom';
 import { getUserEmail, getAuthToken, getUid, getVerified } from '../utils/cookie';
+import { getApiUrl } from '../utils/config';
 
 interface UserInfo {
   email: string;
-  nickname: string;
+  username: string;
   avatar?: string;
   verified?: boolean;
+  totp_enabled?: boolean;
 }
 
 export default function Profile() {
@@ -20,6 +23,15 @@ export default function Profile() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
+
+  const [totpDialogOpen, setTotpDialogOpen] = useState(false);
+  const [totpKey, setTotpKey] = useState<string | null>(null);
+  const [totpLoading, setTotpLoading] = useState(false);
+  const [totpError, setTotpError] = useState<string | null>(null);
+  const [passcode, setPasscode] = useState('');
+  const [passcodeError, setPasscodeError] = useState<string | null>(null);
+  const [verifying, setVerifying] = useState(false);
+  const [setupSuccess, setSetupSuccess] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -34,7 +46,7 @@ export default function Profile() {
       }
 
       try {
-        const resp = await fetch('/user', {
+        const resp = await fetch(getApiUrl('/user'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -51,21 +63,22 @@ export default function Profile() {
         if (resp.ok && data.success && data.data) {
           setUserInfo({
             email: data.data.email || email,
-            nickname: data.data.nickname || email.split('@')[0],
+            username: data.data.username || email.split('@')[0],
             avatar: data.data.avatar,
             verified: Boolean(data.data.verified),
+            totp_enabled: Boolean(data.data.totp_enabled),
           });
         } else {
           setUserInfo({
             email,
-            nickname: email.split('@')[0],
+            username: email.split('@')[0],
             verified: Boolean(getVerified()),
           });
         }
       } catch {
         setUserInfo({
           email,
-          nickname: email.split('@')[0],
+          username: email.split('@')[0],
           verified: Boolean(getVerified()),
         });
       } finally {
@@ -99,13 +112,13 @@ export default function Profile() {
     const token = getAuthToken();
 
     try {
-      const resp = await fetch('/change-profile-name', {
+      const resp = await fetch(getApiUrl('/change-username'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         credentials: 'include',
-        body: JSON.stringify({ remember_token: token, name: newUsername }),
+        body: JSON.stringify({ remember_token: token, username: newUsername }),
       });
 
       const data = await resp.json().catch(() => ({
@@ -114,7 +127,8 @@ export default function Profile() {
       }));
 
       if (data.success) {
-        setUserInfo(prev => prev ? { ...prev, nickname: newUsername } : null);
+        const updatedUsername = data.data?.username || newUsername;
+        setUserInfo(prev => prev ? { ...prev, username: updatedUsername } : null);
         setSaveSuccess(true);
         setEditMode(false);
         setNewUsername('');
@@ -134,6 +148,112 @@ export default function Profile() {
     setNewUsername('');
     setSaveError(null);
     setSaveSuccess(false);
+  };
+
+  const handleOpenTotpDialog = async () => {
+    const email = getUserEmail();
+    const token = getAuthToken();
+
+    if (!email || !token) {
+      setTotpError('未登录或登录已过期');
+      return;
+    }
+
+    setTotpLoading(true);
+    setTotpError(null);
+    setTotpKey(null);
+    setPasscode('');
+    setPasscodeError(null);
+    setSetupSuccess(false);
+
+    try {
+      const resp = await fetch(getApiUrl('/totp/setup'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ email, remtoken: token }),
+      });
+
+      const data = await resp.json().catch(() => ({
+        success: false,
+        message: '服务器返回无法解析的响应',
+      }));
+
+      if (data.success && data.totpkey) {
+        setTotpKey(data.totpkey);
+        setTotpDialogOpen(true);
+      } else {
+        setTotpError(data.message || '设置 TOTP 失败');
+      }
+    } catch {
+      setTotpError('服务器错误');
+    } finally {
+      setTotpLoading(false);
+    }
+  };
+
+  const handleCloseTotpDialog = () => {
+    setTotpDialogOpen(false);
+    setTotpKey(null);
+    setPasscode('');
+    setPasscodeError(null);
+    setTotpError(null);
+    setSetupSuccess(false);
+  };
+
+  const handleVerifyPasscode = async () => {
+    if (!passcode || passcode.length !== 6 || !/^\d+$/.test(passcode)) {
+      setPasscodeError('请输入6位数字验证码');
+      return;
+    }
+
+    const email = getUserEmail();
+    if (!email) {
+      setPasscodeError('用户信息获取失败');
+      return;
+    }
+
+    setVerifying(true);
+    setPasscodeError(null);
+
+    try {
+      const resp = await fetch(getApiUrl('/totp/verify'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ email, passcode }),
+      });
+
+      const data = await resp.json().catch(() => ({
+        success: false,
+        message: '服务器返回无法解析的响应',
+      }));
+
+      if (data.success) {
+        setSetupSuccess(true);
+        setUserInfo(prev => prev ? { ...prev, totp_enabled: true } : null);
+        setTimeout(() => {
+          handleCloseTotpDialog();
+        }, 1500);
+      } else {
+        setPasscodeError(data.message || '验证失败');
+      }
+    } catch {
+      setPasscodeError('服务器错误');
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  const generateOtpAuthUri = (secret: string, email: string): string => {
+    const issuer = 'HRPAuth';
+    const encodedIssuer = encodeURIComponent(issuer);
+    const encodedAccount = encodeURIComponent(email);
+    return `otpauth://totp/${encodedIssuer}:${encodedAccount}?secret=${secret}&issuer=${encodedIssuer}&algorithm=SHA1&digits=6&period=30`;
   };
 
   if (loading) {
@@ -161,7 +281,7 @@ export default function Profile() {
     return null;
   }
 
-  const userInitial = userInfo.nickname ? userInfo.nickname.charAt(0).toUpperCase() : 'U';
+  const userInitial = userInfo.username ? userInfo.username.charAt(0).toUpperCase() : 'U';
 
   return (
     <Box>
@@ -185,7 +305,7 @@ export default function Profile() {
           {userInfo.avatar ? (
             <Avatar
               src={userInfo.avatar}
-              alt={userInfo.nickname}
+              alt={userInfo.username}
               sx={{ width: 80, height: 80 }}
             />
           ) : (
@@ -229,7 +349,7 @@ export default function Profile() {
               <>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                   <Typography variant="h5" gutterBottom>
-                    {userInfo.nickname}
+                    {userInfo.username}
                   </Typography>
                   <Button
                     startIcon={<Edit />}
@@ -262,6 +382,100 @@ export default function Profile() {
           </Box>
         </CardContent>
       </Card>
+
+      <Card sx={{ maxWidth: 500, mt: 2 }}>
+        <CardContent>
+          <Stack direction="row" alignItems="center" justifyContent="space-between">
+            <Box>
+              <Typography variant="h6" gutterBottom>
+                Two-Factor Authentication
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {userInfo.totp_enabled
+                  ? 'TOTP is enabled for your account'
+                  : 'Protect your account with TOTP authenticator'
+                }
+              </Typography>
+            </Box>
+            <Button
+              variant={userInfo.totp_enabled ? 'outlined' : 'contained'}
+              startIcon={<Key />}
+              onClick={handleOpenTotpDialog}
+              disabled={totpLoading}
+            >
+              {totpLoading ? 'Loading...' : userInfo.totp_enabled ? 'Manage' : 'Enable'}
+            </Button>
+          </Stack>
+        </CardContent>
+      </Card>
+
+      <Dialog open={totpDialogOpen} onClose={handleCloseTotpDialog} maxWidth="sm" fullWidth>
+        <DialogTitle>Set up TOTP Authenticator</DialogTitle>
+        <DialogContent>
+          {setupSuccess ? (
+            <Alert severity="success" sx={{ mt: 2 }}>
+              TOTP has been successfully enabled!
+            </Alert>
+          ) : (
+            <>
+              {totpError && (
+                <Alert severity="error" sx={{ mb: 2 }}>
+                  {totpError}
+                </Alert>
+              )}
+              {totpKey && (
+                <>
+                  <Typography variant="body1" sx={{ mb: 2 }}>
+                    Scan the QR code with your authenticator app:
+                  </Typography>
+                  <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
+                    <QRCodeSVG
+                      value={generateOtpAuthUri(totpKey, userInfo?.email || '')}
+                      size={200}
+                      level="M"
+                    />
+                  </Box>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2, textAlign: 'center' }}>
+                    Or manually enter this secret key: <strong>{totpKey}</strong>
+                  </Typography>
+                  <TextField
+                    label="Enter 6-digit code"
+                    value={passcode}
+                    onChange={(e) => setPasscode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    fullWidth
+                    margin="dense"
+                    error={!!passcodeError}
+                    helperText={passcodeError}
+                    slotProps={{
+                      input: {
+                        endAdornment: (
+                          <InputAdornment position="end">
+                            <Typography variant="caption" color="text.secondary">
+                              {passcode.length}/6
+                            </Typography>
+                          </InputAdornment>
+                        ),
+                      },
+                    }}
+                  />
+                </>
+              )}
+            </>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseTotpDialog}>Cancel</Button>
+          {!setupSuccess && totpKey && (
+            <Button
+              variant="contained"
+              onClick={handleVerifyPasscode}
+              disabled={verifying || passcode.length !== 6}
+            >
+              {verifying ? 'Verifying...' : 'Verify'}
+            </Button>
+          )}
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
