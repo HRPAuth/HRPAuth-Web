@@ -1,13 +1,17 @@
 import { useState } from 'react';
-import { TextField, Button, Typography, Box, Alert } from '@mui/material';
+import { TextField, Button, Typography, Box, Alert, ToggleButton, ToggleButtonGroup } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { validateEmail } from '../utils/email';
 import { setAuthCookies } from '../utils/cookie';
 import type { LoginResponse } from '../global';
 
+type LoginMethod = 'password' | 'totp';
+
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [totpCode, setTotpCode] = useState('');
+  const [loginMethod, setLoginMethod] = useState<LoginMethod>('password');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -21,9 +25,20 @@ export default function Login() {
       return false;
     }
 
-    if (!password) {
-      setError('Please input password 请输入密码。');
-      return false;
+    if (loginMethod === 'password') {
+      if (!password) {
+        setError('Please input password 请输入密码。');
+        return false;
+      }
+    } else {
+      if (!totpCode || totpCode.length !== 6) {
+        setError('Please input 6-digit TOTP code 请输入6位TOTP验证码。');
+        return false;
+      }
+      if (!/^\d{6}$/.test(totpCode)) {
+        setError('TOTP code must be 6 digits TOTP验证码必须为6位数字。');
+        return false;
+      }
     }
 
     return true;
@@ -38,10 +53,14 @@ export default function Login() {
 
     try {
       const base = (window as Window & { BACKEND_URL?: string }).BACKEND_URL?.replace(/\/$/, '') || '';
-      const url = base + '/login';
+      const url = loginMethod === 'password' ? base + '/login' : base + '/totp/verify';
 
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+      const bodyData = loginMethod === 'password' 
+        ? { email, password }
+        : { email, passcode: totpCode };
 
       const resp = await fetch(url, {
         method: 'POST',
@@ -49,10 +68,7 @@ export default function Login() {
           'Content-Type': 'application/json',
         },
         credentials: 'include',
-        body: JSON.stringify({
-          email,
-          password,
-        }),
+        body: JSON.stringify(bodyData),
         signal: controller.signal,
       });
 
@@ -61,14 +77,27 @@ export default function Login() {
       const data = await resp.json().catch(() => ({
         success: false,
         message: '服务器返回无法解析的响应',
-      })) as LoginResponse | { success: false; message: string };
+      }));
 
       if (!resp.ok || data.success === false) {
         setError(data.message || 'Please login again 请重新登录');
       } else if (data.success === true) {
-        // 登录成功后，获取用户信息以获取is_verified状态
+        let token: string;
+        let uid: string;
+        let totpEnabled: boolean | null = null;
+
+        if (loginMethod === 'password') {
+          const loginData = data as LoginResponse;
+          token = loginData.token;
+          uid = loginData.uid;
+          totpEnabled = Boolean(loginData.totp);
+        } else {
+          const totpData = data as { success: true; email: string; rt: string };
+          token = totpData.rt;
+          uid = '';
+        }
+
         try {
-          const base = (window as Window & { BACKEND_URL?: string }).BACKEND_URL?.replace(/\/$/, '') || '';
           const userUrl = base + '/user';
           
           const userResp = await fetch(userUrl, {
@@ -77,7 +106,7 @@ export default function Login() {
               'Content-Type': 'application/json',
             },
             credentials: 'include',
-            body: JSON.stringify({ remember_token: data.token, uid: data.uid, email }),
+            body: JSON.stringify({ remember_token: token, uid, email }),
           });
           
           const userData = await userResp.json().catch(() => ({
@@ -86,10 +115,16 @@ export default function Login() {
           }));
           
           const verified = userResp.ok && userData.success && userData.data ? userData.data.verified : undefined;
-          setAuthCookies(email, data.token, data.uid, verified);
+          const userId = userResp.ok && userData.success && userData.data ? userData.data.uid : uid;
+          let finalTotp: boolean | undefined;
+          if (totpEnabled !== null) {
+            finalTotp = totpEnabled;
+          } else if (userResp.ok && userData.success && userData.data && userData.data.totp_enabled !== undefined) {
+            finalTotp = Boolean(userData.data.totp_enabled);
+          }
+          setAuthCookies(email, token, userId, verified, finalTotp);
         } catch {
-          // 如果获取用户信息失败，仍然设置基本的认证cookie
-          setAuthCookies(email, data.token, data.uid);
+          setAuthCookies(email, token, uid, undefined, totpEnabled ?? undefined);
         }
         
         setSuccess(true);
@@ -132,6 +167,24 @@ export default function Login() {
         </Alert>
       ) : (
         <form onSubmit={handleSubmit}>
+          <ToggleButtonGroup
+            value={loginMethod}
+            exclusive
+            onChange={(_, newValue) => {
+              if (newValue !== null) {
+                setLoginMethod(newValue);
+              }
+            }}
+            sx={{ mb: 2, width: '100%' }}
+          >
+            <ToggleButton value="password" sx={{ flex: 1 }}>
+              密码登录
+            </ToggleButton>
+            <ToggleButton value="totp" sx={{ flex: 1 }}>
+              TOTP 验证码登录
+            </ToggleButton>
+          </ToggleButtonGroup>
+
           <TextField
             label="E-mail 邮箱"
             type="email"
@@ -143,16 +196,31 @@ export default function Login() {
             disabled={loading}
           />
 
-          <TextField
-            label="Password 密码"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            fullWidth
-            sx={{ mb: 2 }}
-            disabled={loading}
-          />
+          {loginMethod === 'password' ? (
+            <TextField
+              label="Password 密码"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              fullWidth
+              sx={{ mb: 2 }}
+              disabled={loading}
+            />
+          ) : (
+            <TextField
+              label="TOTP 验证码"
+              type="text"
+              value={totpCode}
+              onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              placeholder="请输入6位数字验证码"
+              required
+              fullWidth
+              sx={{ mb: 2 }}
+              disabled={loading}
+              inputProps={{ maxLength: 6 }}
+            />
+          )}
 
           <Button
             variant="contained"

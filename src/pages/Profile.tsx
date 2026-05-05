@@ -3,7 +3,7 @@ import { Box, Typography, Card, CardContent, Avatar, CircularProgress, Alert, Ch
 import { CheckCircle, Warning, Edit, Save, Key } from '@mui/icons-material';
 import { QRCodeSVG } from 'qrcode.react';
 import { Link as RouterLink } from 'react-router-dom';
-import { getUserEmail, getAuthToken, getUid, getVerified } from '../utils/cookie';
+import { getUserEmail, getAuthToken, getUid, getVerified, getTotpEnabled, setTotpEnabled } from '../utils/cookie';
 import { getApiUrl } from '../utils/config';
 
 interface UserInfo {
@@ -11,7 +11,7 @@ interface UserInfo {
   username: string;
   avatar?: string;
   verified?: boolean;
-  totp_enabled?: boolean;
+  totp_enabled: boolean;
 }
 
 export default function Profile() {
@@ -61,25 +61,33 @@ export default function Profile() {
         }));
 
         if (resp.ok && data.success && data.data) {
+          const apiTotp = data.data.totp_enabled;
+          const cookieTotp = getTotpEnabled();
+          const totpEnabled = apiTotp !== undefined ? Boolean(apiTotp) : (cookieTotp !== undefined ? cookieTotp : false);
+          
           setUserInfo({
             email: data.data.email || email,
             username: data.data.username || email.split('@')[0],
             avatar: data.data.avatar,
             verified: Boolean(data.data.verified),
-            totp_enabled: Boolean(data.data.totp_enabled),
+            totp_enabled: totpEnabled,
           });
         } else {
+          const cookieTotp = getTotpEnabled();
           setUserInfo({
             email,
             username: email.split('@')[0],
             verified: Boolean(getVerified()),
+            totp_enabled: cookieTotp !== undefined ? cookieTotp : false,
           });
         }
       } catch {
+        const cookieTotp = getTotpEnabled();
         setUserInfo({
           email,
           username: email.split('@')[0],
           verified: Boolean(getVerified()),
+          totp_enabled: cookieTotp !== undefined ? cookieTotp : false,
         });
       } finally {
         setLoading(false);
@@ -236,6 +244,7 @@ export default function Profile() {
       if (data.success) {
         setSetupSuccess(true);
         setUserInfo(prev => prev ? { ...prev, totp_enabled: true } : null);
+        setTotpEnabled(true);
         setTimeout(() => {
           handleCloseTotpDialog();
         }, 1500);
@@ -392,7 +401,7 @@ export default function Profile() {
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 {userInfo.totp_enabled
-                  ? 'TOTP is enabled for your account'
+                  ? 'TOTP has been enabled for your account'
                   : 'Protect your account with TOTP authenticator'
                 }
               </Typography>
@@ -403,7 +412,7 @@ export default function Profile() {
               onClick={handleOpenTotpDialog}
               disabled={totpLoading}
             >
-              {totpLoading ? 'Loading...' : userInfo.totp_enabled ? 'Manage' : 'Enable'}
+              {totpLoading ? 'Loading...' : userInfo.totp_enabled ? 'Reset' : 'Enable'}
             </Button>
           </Stack>
         </CardContent>

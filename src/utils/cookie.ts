@@ -62,7 +62,7 @@ export function deleteCookie(name: string, options: Pick<CookieOptions, 'domain'
   document.cookie = cookieString;
 }
 
-export function setAuthCookies(email: string, token: string, uid: string, verified?: boolean): void {
+export function setAuthCookies(email: string, token: string, uid: string, verified?: boolean, totp?: boolean): void {
   const farFuture = new Date();
   farFuture.setFullYear(farFuture.getFullYear() + 10);
 
@@ -88,6 +88,15 @@ export function setAuthCookies(email: string, token: string, uid: string, verifi
       secure: window.location.protocol === 'https'
     });
   }
+
+  if (totp !== undefined) {
+    setCookie('totp_enabled', totp.toString(), {
+      expires: farFuture,
+      path: '/',
+      sameSite: 'lax',
+      secure: window.location.protocol === 'https'
+    });
+  }
 }
 
 export function getVerified(): boolean | undefined {
@@ -96,10 +105,29 @@ export function getVerified(): boolean | undefined {
   return verified === 'true';
 }
 
+export function getTotpEnabled(): boolean | undefined {
+  const totpEnabled = getCookie('totp_enabled');
+  if (totpEnabled === null) return undefined;
+  return totpEnabled === 'true';
+}
+
+export function setTotpEnabled(totp: boolean): void {
+  const farFuture = new Date();
+  farFuture.setFullYear(farFuture.getFullYear() + 10);
+  
+  setCookie('totp_enabled', totp.toString(), {
+    expires: farFuture,
+    path: '/',
+    sameSite: 'lax',
+    secure: window.location.protocol === 'https'
+  });
+}
+
 export function clearAuthCookies(): void {
   deleteCookie('user_email');
   deleteCookie('hrpa_auth');
   deleteCookie('verified');
+  deleteCookie('totp_enabled');
 }
 
 export function getAuthToken(): string | null {

@@ -26,6 +26,7 @@ export interface LoginResponse {
   message: string;
   token: string;
   uid: string;
+  totp: number;
 }
 
 export interface LoginError {

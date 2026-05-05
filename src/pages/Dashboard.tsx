@@ -6,9 +6,13 @@ import Typography from '@mui/material/Typography';
 import Divider from '@mui/material/Divider';
 import ListItem from '@mui/material/ListItem';
 import ListItemButton from '@mui/material/ListItemButton';
+import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import { Box, Card, CardContent, Grid, Button } from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+import ApiIcon from '@mui/icons-material/Api';
+import FaceIcon from '@mui/icons-material/Face';
+import VpnKeyIcon from '@mui/icons-material/VpnKey';
 import { getBackendUrl } from '../utils/config';
 
 function CodeBlock({ children }: { children: string }) {
@@ -89,16 +93,17 @@ interface MenuItem {
   label: string;
   content: string;
   jsxContent?: React.ReactNode;
+  icon?: React.ReactNode;
 }
 
 const menuItems: MenuItem[] = [
-  { id: 'Yggdrasil API', label: 'Yggdrasil API', content: '', jsxContent: <YggdrasilDashboard /> },
-  { id: 'CustomSkinLoader', label: 'CustomSkinLoader', content: '', },
-  { id: 'OAuth2', label: 'OAuth2', content: '' },
+  { id: 'Yggdrasil API', label: 'Yggdrasil API', content: '', jsxContent: <YggdrasilDashboard />, icon: <ApiIcon /> },
+  { id: 'CustomSkinLoader', label: 'CustomSkinLoader', content: '', icon: <FaceIcon /> },
+  { id: 'OAuth2', label: 'OAuth2', content: '', icon: <VpnKeyIcon /> },
 ];
 
 export default function PermanentDrawerLeft() {
-  const [selectedItem, setSelectedItem] = useState<string | null>('inbox');
+  const [selectedItem, setSelectedItem] = useState<string | null>('Yggdrasil API');
 
   return (
     <Box sx={{ display: 'flex', minHeight: 'calc(100vh - 64px)' }}>
@@ -110,7 +115,9 @@ export default function PermanentDrawerLeft() {
             width: drawerWidth,
             boxSizing: 'border-box',
             position: 'relative',
-            height: 'auto',
+            height: '100%',
+            borderRight: '1px solid',
+            borderColor: 'divider',
           },
         }}
         variant="permanent"
@@ -118,26 +125,32 @@ export default function PermanentDrawerLeft() {
       >
         <Toolbar />
         <Divider />
-        <List>
-          {menuItems.slice(0, 4).map((item) => (
-            <ListItem key={item.id} disablePadding>
+        <List sx={{ py: 1 }}>
+          {menuItems.map((item) => (
+            <ListItem key={item.id} disablePadding sx={{ mx: 1, my: 0.5, borderRadius: 1 }}>
               <ListItemButton
                 selected={selectedItem === item.id}
                 onClick={() => setSelectedItem(item.id)}
+                sx={{
+                  borderRadius: 1,
+                  '&.Mui-selected': {
+                    bgcolor: 'primary.main',
+                    color: 'primary.contrastText',
+                    '& .MuiListItemIcon-root': {
+                      color: 'primary.contrastText',
+                    },
+                    '&:hover': {
+                      bgcolor: 'primary.dark',
+                    },
+                  },
+                  '&:hover': {
+                    bgcolor: 'action.hover',
+                  },
+                }}
               >
-                <ListItemText primary={item.label} />
-              </ListItemButton>
-            </ListItem>
-          ))}
-        </List>
-        <Divider />
-        <List>
-          {menuItems.slice(4).map((item) => (
-            <ListItem key={item.id} disablePadding>
-              <ListItemButton
-                selected={selectedItem === item.id}
-                onClick={() => setSelectedItem(item.id)}
-              >
+                <ListItemIcon sx={{ minWidth: 40 }}>
+                  {item.icon}
+                </ListItemIcon>
                 <ListItemText primary={item.label} />
               </ListItemButton>
             </ListItem>
