@@ -1,10 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Box, Typography, Card, CardContent, Avatar, CircularProgress, Alert, Chip, Stack, Link, TextField, Button, Dialog, DialogTitle, DialogContent, DialogActions, InputAdornment } from '@mui/material';
-import { CheckCircle, Warning, Edit, Save, Key } from '@mui/icons-material';
+import CheckCircle from '@mui/icons-material/CheckCircle';
+import Warning from '@mui/icons-material/Warning';
+import Edit from '@mui/icons-material/Edit';
+import Save from '@mui/icons-material/Save';
+import Key from '@mui/icons-material/Key';
+import CloudUpload from '@mui/icons-material/CloudUpload';
+import Delete from '@mui/icons-material/Delete';
+import Photo from '@mui/icons-material/Photo';
 import { QRCodeSVG } from 'qrcode.react';
 import { Link as RouterLink } from 'react-router-dom';
 import { getUserEmail, getAuthToken, getUid, getVerified, getTotpEnabled, setTotpEnabled } from '../utils/cookie';
-import { getApiUrl } from '../utils/config';
+import { getApiUrl, getRealBackendUrl } from '../utils/config';
 
 interface UserInfo {
   email: string;
@@ -12,6 +19,7 @@ interface UserInfo {
   avatar?: string;
   verified?: boolean;
   totp_enabled: boolean;
+  uuid?: string;
 }
 
 export default function Profile() {
@@ -32,6 +40,15 @@ export default function Profile() {
   const [passcodeError, setPasscodeError] = useState<string | null>(null);
   const [verifying, setVerifying] = useState(false);
   const [setupSuccess, setSetupSuccess] = useState(false);
+
+  const [skinDialogOpen, setSkinDialogOpen] = useState(false);
+  const [skinPreview, setSkinPreview] = useState<string | null>(null);
+  const [skinLoading, setSkinLoading] = useState(false);
+  const [skinError, setSkinError] = useState<string | null>(null);
+  const [skinModel, setSkinModel] = useState<'default' | 'slim'>('default');
+  const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [currentSkinUrl, setCurrentSkinUrl] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -265,6 +282,175 @@ export default function Profile() {
     return `otpauth://totp/${encodedIssuer}:${encodedAccount}?secret=${secret}&issuer=${encodedIssuer}&algorithm=SHA1&digits=6&period=30`;
   };
 
+  const handleOpenSkinDialog = async () => {
+    const uid = getUid();
+    if (!uid) {
+      setSkinError('未登录或登录已过期');
+      return;
+    }
+
+    setSkinPreview(null);
+    setSkinError(null);
+    setUploadSuccess(false);
+    setSkinModel('default');
+
+    try {
+      const backendUrl = await getRealBackendUrl();
+      const skinUrl = `${backendUrl}/textures/${uid}/skin.png`;
+      const response = await fetch(skinUrl);
+      if (response.ok) {
+        setCurrentSkinUrl(skinUrl + '?' + Date.now());
+        setSkinPreview(skinUrl + '?' + Date.now());
+      } else {
+        setCurrentSkinUrl(null);
+      }
+    } catch {
+      setCurrentSkinUrl(null);
+    }
+
+    setSkinDialogOpen(true);
+  };
+
+  const handleCloseSkinDialog = () => {
+    setSkinDialogOpen(false);
+    setSkinPreview(null);
+    setSkinError(null);
+    setUploadSuccess(false);
+    setSkinModel('default');
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/png')) {
+      setSkinError('请上传 PNG 格式的图片');
+      return;
+    }
+
+    if (file.size > 100 * 1024) {
+      setSkinError('图片大小不能超过 100KB');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setSkinPreview(e.target?.result as string);
+      setSkinError(null);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleUploadSkin = async () => {
+    const fileInput = fileInputRef.current;
+    if (!fileInput?.files?.[0]) {
+      setSkinError('请先选择一个文件');
+      return;
+    }
+
+    const file = fileInput.files[0];
+    const uid = getUid();
+    const token = getAuthToken();
+
+    if (!uid || !token) {
+      setSkinError('未登录或登录已过期');
+      return;
+    }
+
+    setSkinLoading(true);
+    setSkinError(null);
+    setUploadSuccess(false);
+
+    try {
+      const backendUrl = await getRealBackendUrl();
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('model', skinModel);
+
+      const response = await fetch(`${backendUrl}/api/user/profile/${uid}/skin`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      if (response.ok) {
+        setUploadSuccess(true);
+        setCurrentSkinUrl(`${backendUrl}/textures/${uid}/skin.png?${Date.now()}`);
+        setSkinPreview(`${backendUrl}/textures/${uid}/skin.png?${Date.now()}`);
+        setTimeout(() => {
+          handleCloseSkinDialog();
+        }, 1500);
+      } else {
+        const data = await response.json().catch(() => null);
+        setSkinError(data?.errorMessage || '上传失败');
+      }
+    } catch {
+      setSkinError('服务器错误');
+    } finally {
+      setSkinLoading(false);
+    }
+  };
+
+  const handleDeleteSkin = async () => {
+    const uid = getUid();
+    const token = getAuthToken();
+
+    if (!uid || !token) {
+      setSkinError('未登录或登录已过期');
+      return;
+    }
+
+    setSkinLoading(true);
+    setSkinError(null);
+
+    try {
+      const backendUrl = await getRealBackendUrl();
+      const response = await fetch(`${backendUrl}/api/user/profile/${uid}/skin`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        setCurrentSkinUrl(null);
+        setSkinPreview(null);
+        setUploadSuccess(true);
+        setTimeout(() => {
+          handleCloseSkinDialog();
+        }, 1500);
+      } else {
+        const data = await response.json().catch(() => null);
+        setSkinError(data?.errorMessage || '删除失败');
+      }
+    } catch {
+      setSkinError('服务器错误');
+    } finally {
+      setSkinLoading(false);
+    }
+  };
+
+  const MinecraftSkinPreview = ({ skinUrl }: { skinUrl: string }) => {
+    return (
+      <Box sx={{ position: 'relative', width: 128, height: 256, margin: '0 auto' }}>
+        <div 
+          style={{
+            width: '100%',
+            height: '100%',
+            backgroundImage: `url(${skinUrl})`,
+            backgroundSize: '128px 256px',
+            imageRendering: 'pixelated',
+          }}
+        />
+      </Box>
+    );
+  };
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '200px' }}>
@@ -397,6 +583,28 @@ export default function Profile() {
           <Stack direction="row" alignItems="center" justifyContent="space-between">
             <Box>
               <Typography variant="h6" gutterBottom>
+                Minecraft Skin
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Upload and manage your Minecraft character skin
+              </Typography>
+            </Box>
+            <Button
+              variant="contained"
+              startIcon={<CloudUpload />}
+              onClick={handleOpenSkinDialog}
+            >
+              Manage Skin
+            </Button>
+          </Stack>
+        </CardContent>
+      </Card>
+
+      <Card sx={{ maxWidth: 500, mt: 2 }}>
+        <CardContent>
+          <Stack direction="row" alignItems="center" justifyContent="space-between">
+            <Box>
+              <Typography variant="h6" gutterBottom>
                 Two-Factor Authentication
               </Typography>
               <Typography variant="body2" color="text.secondary">
@@ -417,6 +625,117 @@ export default function Profile() {
           </Stack>
         </CardContent>
       </Card>
+
+      <Dialog open={skinDialogOpen} onClose={handleCloseSkinDialog} maxWidth="md" fullWidth>
+        <DialogTitle>Manage Minecraft Skin</DialogTitle>
+        <DialogContent>
+          {uploadSuccess ? (
+            <Alert severity="success" sx={{ mt: 2 }}>
+              Skin uploaded successfully!
+            </Alert>
+          ) : (
+            <>
+              {skinError && (
+                <Alert severity="error" sx={{ mb: 2 }}>
+                  {skinError}
+                </Alert>
+              )}
+              <Box sx={{ display: 'flex', gap: 4, mt: 2 }}>
+                <Box sx={{ flex: 1 }}>
+                  <Typography variant="body1" sx={{ mb: 2 }}>
+                    Skin Preview:
+                  </Typography>
+                  {skinPreview ? (
+                    <MinecraftSkinPreview skinUrl={skinPreview} />
+                  ) : (
+                    <Box sx={{ 
+                      width: 128, 
+                      height: 256, 
+                      margin: '0 auto', 
+                      backgroundColor: '#e0e0e0',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderRadius: 1
+                    }}>
+                      <Photo sx={{ width: 48, height: 48, color: '#999' }} />
+                    </Box>
+                  )}
+                </Box>
+                <Box sx={{ flex: 1 }}>
+                  <Typography variant="body1" sx={{ mb: 2 }}>
+                    Upload Skin:
+                  </Typography>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/png"
+                    onChange={handleFileChange}
+                    style={{ display: 'none' }}
+                    id="skin-upload"
+                  />
+                  <label htmlFor="skin-upload">
+                    <Button
+                      variant="outlined"
+                      component="span"
+                      startIcon={<CloudUpload />}
+                      fullWidth
+                      sx={{ mb: 2 }}
+                    >
+                      Choose File
+                    </Button>
+                  </label>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    Supported: PNG format, max 100KB
+                  </Typography>
+                  <Typography variant="body1" sx={{ mb: 1 }}>
+                    Skin Model:
+                  </Typography>
+                  <Stack direction="row" spacing={2} sx={{ mb: 3 }}>
+                    <Button
+                      variant={skinModel === 'default' ? 'contained' : 'outlined'}
+                      onClick={() => setSkinModel('default')}
+                    >
+                      Default (Steve)
+                    </Button>
+                    <Button
+                      variant={skinModel === 'slim' ? 'contained' : 'outlined'}
+                      onClick={() => setSkinModel('slim')}
+                    >
+                      Slim (Alex)
+                    </Button>
+                  </Stack>
+                  {currentSkinUrl && (
+                    <Button
+                      variant="outlined"
+                      color="error"
+                      startIcon={<Delete />}
+                      onClick={handleDeleteSkin}
+                      disabled={skinLoading}
+                      fullWidth
+                      sx={{ mb: 2 }}
+                    >
+                      {skinLoading ? 'Deleting...' : 'Delete Current Skin'}
+                    </Button>
+                  )}
+                </Box>
+              </Box>
+            </>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseSkinDialog}>Cancel</Button>
+          {!uploadSuccess && (
+            <Button
+              variant="contained"
+              onClick={handleUploadSkin}
+              disabled={skinLoading || !skinPreview}
+            >
+              {skinLoading ? 'Uploading...' : 'Upload Skin'}
+            </Button>
+          )}
+        </DialogActions>
+      </Dialog>
 
       <Dialog open={totpDialogOpen} onClose={handleCloseTotpDialog} maxWidth="sm" fullWidth>
         <DialogTitle>Set up TOTP Authenticator</DialogTitle>

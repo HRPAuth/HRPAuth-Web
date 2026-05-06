@@ -84,18 +84,19 @@
 
 ### 文件系统与数据库操作
 - **数据库操作**:
-  - 查询用户信息：`SELECT uid, password FROM users WHERE email = ? LIMIT 1`
+  - 查询用户信息：`SELECT uid, password, totp FROM users WHERE email = ? LIMIT 1`
   - 更新用户 token：`UPDATE users SET remember_token = ? WHERE uid = ?`
 
 ### 处理操作
 1. 验证请求方法是否为 POST
 2. 解析 JSON 请求数据
 3. 验证邮箱格式
-4. 查询用户信息
+4. 查询用户信息（包含 totp 字段）
 5. 验证密码
 6. 生成随机 token
 7. 更新用户 token 到数据库
-8. 返回登录结果
+8. 判断用户是否配置了 TOTP（检查 totp 字段是否有内容）
+9. 返回登录结果（包含 totp 状态）
 
 ### 返回值类型
 - **Content-Type**: `application/json`
@@ -103,10 +104,19 @@
 ### 期望的返回值用途
 | 状态码 | 成功响应 | 失败响应 | 用途 |
 |--------|----------|----------|------|
-| 200 | `{"success": true, "message": "Login successful", "token": "string", "uid": "number"}` | - | 登录成功，返回用户 token 和 uid |
+| 200 | `{"success": true, "message": "Login successful", "token": "string", "uid": "number", "totp": "number"}` | - | 登录成功，返回用户 token、uid 和 TOTP 状态 |
 | 400 | - | `{"success": false, "message": "Invalid email"}` | 邮箱格式错误 |
 | 401 | - | `{"success": false, "message": "Email or password incorrect"}` | 邮箱或密码错误 |
 | 405 | - | `{"success": false, "message": "Method Not Allowed"}` | 请求方法错误 |
+
+### 返回字段说明
+| 字段名 | 类型 | 说明 |
+|--------|------|------|
+| success | boolean | 是否登录成功 |
+| message | string | 操作结果消息 |
+| token | string | 用户登录令牌，用于后续请求认证 |
+| uid | number | 用户唯一标识符 |
+| totp | number | TOTP 状态：`1` 表示用户已配置 TOTP，`0` 表示未配置 |
 
 ## 2. 注册 API
 
@@ -919,6 +929,35 @@
 | file | file | 是 | PNG 图片文件（表单数据） |
 | model | string | 否 | 皮肤模型（default/slim，仅用于 skin 类型） |
 
+#### 文件系统与数据库操作
+- **文件系统操作**:
+  - 创建材质目录：`/public/textures/{uuid}/`
+  - 保存材质文件：`/public/textures/{uuid}/{textureType}.png`
+- **数据库操作**:
+  - 查询档案归属：`SELECT id FROM profiles WHERE id = ? AND user_id = ?`
+  - 更新材质属性：`UPDATE profile_properties SET value = ? WHERE id = ?`
+  - 新增材质属性：`INSERT INTO profile_properties (profile_id, name, value) VALUES (?, 'textures', ?)`
+
+#### 处理操作
+1. 验证 UUID 和材质类型（必须为 skin 或 cape）
+2. 验证 Authorization 请求头，提取 Bearer token
+3. 验证 token 有效性（查询 tokens 表）
+4. 验证档案是否属于当前用户
+5. 验证上传文件（PNG 格式，大小 ≤ 100KB）
+6. 创建 `{uuid}` 目录（如不存在）
+7. 将上传文件保存到 `/public/textures/{uuid}/{textureType}.png`
+8. 生成材质 URL：`{callback_url}/textures/{uuid}/{textureType}.png`
+9. 构建材质载荷并 Base64 编码
+10. 更新或插入 profile_properties 表中的 textures 属性
+
+#### 材质文件存储位置
+- **路径**: `/public/textures/{uuid}/{textureType}.png`
+- **示例**: `/public/textures/550e8400e29b41d4a71644665530a028/skin.png`
+
+#### 材质 URL 格式
+- **格式**: `{callback_url}/textures/{uuid}/{textureType}.png`
+- **示例**: `https://hrpauth.samuelcheston.com/textures/550e8400e29b41d4a71644665530a028/skin.png`
+
 #### 返回值
 成功响应：204 No Content
 失败响应：
@@ -943,6 +982,24 @@
 | textureType | string | 是 | 材质类型（skin/cape，路径参数） |
 | Authorization | string | 是 | Bearer 访问 token（请求头） |
 
+#### 文件系统与数据库操作
+- **文件系统操作**:
+  - 删除材质文件：`/public/textures/{uuid}/{textureType}.png`
+- **数据库操作**:
+  - 查询材质属性：`SELECT id, value FROM profile_properties WHERE profile_id = ? AND name = 'textures'`
+  - 更新材质属性：`UPDATE profile_properties SET value = ? WHERE id = ?`
+  - 删除材质属性：`DELETE FROM profile_properties WHERE id = ?`
+
+#### 处理操作
+1. 验证 UUID 和材质类型（必须为 skin 或 cape）
+2. 验证 Authorization 请求头，提取 Bearer token
+3. 验证 token 有效性（查询 tokens 表）
+4. 验证档案是否属于当前用户
+5. 查询 profile_properties 中的 textures 属性
+6. 解码并更新 textures 载荷，移除对应的材质
+7. 如无剩余材质则删除属性，否则更新属性
+8. 删除物理文件 `/public/textures/{uuid}/{textureType}.png`
+
 #### 返回值
 成功响应：204 No Content
 失败响应：
@@ -951,6 +1008,14 @@
   "error": "ForbiddenOperationException",
   "errorMessage": "Invalid UUID."
 }
+```
+
+### 材质目录结构
+```
+public/textures/
+└── {uuid}/
+    ├── skin.png    # 玩家皮肤文件
+    └── cape.png    # 玩家披风文件
 ```
 
 ## 总结
